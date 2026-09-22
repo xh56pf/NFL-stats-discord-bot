@@ -1,0 +1,15 @@
+services:
+  discord-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.bot
+    container_name: discord-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      # Mount current directory so nfl_stats.duckdb persists on your host
+      # and code edits to bot.py / ingest.py update immediately
+      - .:/app
+    environment:
+      - DUCKDB_PATH=/app/nfl_stats.duckdb

@@ -1,0 +1,20 @@
+# Environment & Secret Keys
+.env
+*.env
+
+# Local Databases & Ingestion Artifacts
+*.duckdb
+*.duckdb.wal
+*.parquet
+
+# Python & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+
+# OS Specific
+.DS_Store
+Thumbs.db
