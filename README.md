@@ -6,6 +6,7 @@ This project began as a method of compiling derived statistics such as receiver 
 
 Weekly NFL player performance statistics are collected from NFLReadPy and stored in a local DuckDB. 
 
+For an iterative breakdown of engineering hurdles, trade-offs, and design notes, see the [Devlog](docs/LEARNINGS.md).
 ---
 
 ## Architecture Overview
@@ -102,3 +103,5 @@ python bot.py
 - "Give me a breakdown of which NFL teams have given up the most touchdowns in the past 2 weeks?"
 
 - "Which running backs have experienced the greatest increase in carries between weeks 1 to 3?"
+
+
