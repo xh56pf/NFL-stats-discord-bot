@@ -1,6 +1,6 @@
 # 🏈 Football Intelligence: Autonomous NFL Analytics & Assistant
 
-An autonomous, NFL analytics engine connected directly to Discord. The system uses **Google Gemini** for reasoning and SQL synthesis, combined with an embedded **DuckDB** analytical engine for high-speed local queries on official `nflreadr` statistical data. 
+An autonomous, NFL analytics engine connected directly to Discord. The system uses **Google Gemini** for reasoning and SQL synthesis, combined with an embedded **DuckDB** analytical engine for high-speed local queries on official `nflreadr` statistical data. A primary design objective of this system is to experiment with **extreme token efficiency** - minimizing prompt bloat and API overhead to operate sustainably within strict quota tiers and reduce environmental compute impact. 
 
 This project began as a method of compiling derived statistics such as receiver target share without manually searching and performing the calculations via Yahoo Fantasy's web interface or spinning up a Jupyter Notebook and inputting python code. 
 
@@ -97,8 +97,8 @@ python bot.py
 
 ## Example Queries
 
-- "Who had the highest target share in Week 2?"
+- "How did Rashid Shaheed's target share compare to all Seahawks wide receivers in week 2?"
 
-- "Compare Rashid Shaheed and Chris Olave's PPR points over the last 3 weeks."
+- "Give me a breakdown of which NFL teams have given up the most touchdowns in the past 2 weeks?"
 
-- "List the top 5 running backs by yards per carry with at least 20 attempts."
+- "Which running backs have experienced the greatest increase in carries between weeks 1 to 3?"
