@@ -1,0 +1,9 @@
+{
+  "rules": [
+    "Always alias 'desc' as 'play_description' when querying play_by_play to avoid reserved keyword errors.",
+    "Do NOT look for 'game_id' in weekly_stats; games are identified by (season, week, team).",
+    "Defensive fantasy points allowed must be aggregated from play_by_play grouped by defteam, never from weekly_stats.",
+    "Always filter out non-plays when calculating efficiency or EPA: WHERE qb_kneel = 0 AND qb_spike = 0.",
+    "Use ILIKE '%Name%' for all fuzzy player and team name searches."
+  ]
+}

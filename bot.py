@@ -1,4 +1,5 @@
 import os
+import json 
 import io
 import traceback
 import asyncio
@@ -14,6 +15,10 @@ try:
 except ImportError:
     ingest = None
 
+# Import dynamic rules file
+
+RULES_FILE = "dynamic_rules.json"
+
 # ---------------------------------------------------------
 # Environment & Client Initialization
 # ---------------------------------------------------------
@@ -27,6 +32,70 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 ai_client = genai.Client(api_key=GEMINI_API_KEY)
 
+# ---------------------------------------------------------
+# Dynamic Rules and Heuristic Utilities
+# ---------------------------------------------------------
+
+# Tracks the last query execution details per Discord channel
+LAST_QUERY_CONTEXT = {}
+
+def load_dynamic_rules() -> list[str]:
+    """Reads learned heuristics from dynamic_rules.json."""
+    if not os.path.exists(RULES_FILE):
+        with open(RULES_FILE, "w") as f:
+            json.dump({"rules": []}, f)
+        return []
+    try:
+        with open(RULES_FILE, "r") as f:
+            data = json.load(f)
+            return data.get("rules", [])
+    except Exception as e:
+        print(f"[WARN] Failed to load dynamic rules: {e}", flush=True)
+        return []
+
+def save_dynamic_rule(new_rule: str):
+    """Appends a newly synthesized rule to dynamic_rules.json."""
+    rules = load_dynamic_rules()
+    if new_rule not in rules:
+        rules.append(new_rule)
+        with open(RULES_FILE, "w") as f:
+            json.dump({"rules": rules}, f, indent=2)
+
+def build_system_instruction() -> str:
+    learned_rules = load_dynamic_rules()
+    rules_block = "\n".join([f"- {r}" for r in learned_rules]) if learned_rules else "- None yet."
+
+    return (
+        "You are Hank 2.0, an expert NFL statistics and fantasy football analyst with direct access "
+        "to a local DuckDB database containing four tables: `weekly_stats`, `rosters`, `play_by_play`, and `schedules`.\n\n"
+        "Table Selection & Routing Guidelines:\n"
+        "1. `weekly_stats`: Player season/weekly production, leaderboards, and fantasy totals (use `team` for the player's franchise).\n"
+        "2. `rosters`: Active rosters, depth charts, and player metadata mapped via `gsis_id`.\n"
+        "3. `play_by_play`: Situational event metrics, down-and-distance splits, EPA, and defensive points conceded (grouped by `defteam`).\n"
+        "4. `schedules`: Future matchups, remaining games, and schedule calendars.\n\n"
+        "Rest-of-Season (ROS) & Matchup Analysis Rules:\n"
+        "- Linking Players to Schedules:\n"
+        "  * Individual players belong to a team via `rosters.team` (e.g., 'DAL', 'DET').\n"
+        "  * To find upcoming games for players, join `rosters` to `schedules` matching either home or away:\n"
+        "    JOIN schedules s ON (r.team = s.home_team OR r.team = s.away_team)\n"
+        "- Determining the Opponent:\n"
+        "  * For each scheduled matchup, identify the opponent using:\n"
+        "    CASE WHEN s.home_team = r.team THEN s.away_team ELSE s.home_team END AS opponent_team\n"
+        "- Filter Future Weeks:\n"
+        "  * Always restrict schedule lookups to remaining games: `WHERE s.week > [current_completed_week] AND s.season = 2026`.\n"
+        "- Strength of Schedule (SoS) / Matchup Difficulty:\n"
+        "  1. Defensive Baseline: From `play_by_play` joined with `rosters`, compute average yards or fantasy points conceded by `defteam` against specific position groups (e.g., `r.position = 'WR'`).\n"
+        "  2. Future Matchup Join: Join the player's upcoming `opponent_team` from `schedules` to the defensive baseline.\n"
+        "  3. Ranking: Players/teams facing opponents with the highest average yards/points allowed have the 'easiest' remaining schedule.\n\n"
+        "Relational Joins by Position:\n"
+        "- Passing/Receiving: `JOIN rosters r ON p.receiver_player_id = r.gsis_id WHERE r.position = '<TARGET_POSITION>'`\n"
+        "- Rushing: `JOIN rosters r ON p.rusher_player_id = r.gsis_id WHERE r.position = '<TARGET_POSITION>'`\n\n"
+        "### Dynamic Heuristics & Execution Rules (MANDATORY TO FOLLOW):\n"
+        f"{rules_block}\n\n"
+        "Operational Directives:\n"
+        "- If a tool call returns zero rows or an error, explain what happened instead of returning an empty response.\n"
+        "- Format responses cleanly in Markdown with bold numbers, rankings, or tables."
+    )
 
 # ---------------------------------------------------------
 # Database Tool for Gemini
@@ -66,10 +135,19 @@ def run_sql_query(sql_query: str) -> list[dict]:
         con = duckdb.connect(DB_PATH, read_only=True)
         results = con.execute(clean_query).df().to_dict(orient="records")
         con.close()
+
+        # cache query 
+        if CURRENT_ACTIVE_CHANNEL and CURRENT_ACTIVE_CHANNEL in LAST_QUERY_CONTEXT:
+            LAST_QUERY_CONTEXT[CURRENT_ACTIVE_CHANNEL]["sql"] = clean_query
+            LAST_QUERY_CONTEXT[CURRENT_ACTIVE_CHANNEL]["row_count"] = len(results)
+        
+
         print(f"[SQL RESULTS COUNT]: {len(results)} rows returned", flush=True)
+        
         if results:
             print(f"[SQL SAMPLE ROW]: {results[0]}", flush=True)
         return results[:50]  # Limit records to protect prompt context
+    
     except Exception as e:
         print(f"[SQL ERROR]: {e}", flush=True)
         return [{"error": f"SQL execution error: {str(e)}"}]
@@ -78,7 +156,8 @@ def run_sql_query(sql_query: str) -> list[dict]:
 # ---------------------------------------------------------
 # Gemini Orchestration
 # ---------------------------------------------------------
-def ask_gemini_with_duckdb(user_prompt: str) -> str:
+def ask_gemini_with_duckdb(channel_id: int, user_prompt: str) -> str:
+   # Old system instructions, leaving here for reference and comparison with new dynamic method 
     """Synchronous worker that feeds the prompt and DuckDB tool to Gemini."""
     system_instruction=(
         "You are Hank 2.0, an expert NFL statistics and fantasy football analyst with direct access "
@@ -112,8 +191,12 @@ def ask_gemini_with_duckdb(user_prompt: str) -> str:
         "- Format the final output clearly in Markdown using bold numbers, bullet points, or tables."   
     )
 
+    # Track the active channel so run_sql_query knows which channel key to populate
+    global CURRENT_ACTIVE_CHANNEL
+    CURRENT_ACTIVE_CHANNEL = channel_id
+    
     config= types.GenerateContentConfig(
-        system_instruction=system_instruction,
+        system_instruction=build_system_instruction(),
         tools=[run_sql_query],
         temperature=0.0
     )
@@ -187,8 +270,19 @@ async def auto_refresh_db():
 async def nfl_command(ctx: commands.Context, *, question: str):
     async with ctx.typing():
         try:
-            # Run the query in executor to prevent blocking the async event loop
-            answer = await bot.loop.run_in_executor(None, ask_gemini_with_duckdb, question)
+            # 1. Initialize channel context entry
+            LAST_QUERY_CONTEXT[ctx.channel.id] = {
+                "prompt": question,
+                "sql": None,
+                "row_count": 0
+            }
+            # Run the query in executor to prevent blocking the async event loop, include ctx.channel.id
+            answer = await bot.loop.run_in_executor(
+                None, 
+                ask_gemini_with_duckdb, 
+                ctx.channel.id,
+                question
+                )
 
             if not answer:
                 answer = "No response generated."
@@ -220,6 +314,83 @@ async def manual_sync(ctx: commands.Context):
     except Exception as e:
         await ctx.reply(f"❌ Sync failed: `{e}`")
 
+
+# Commands for DES engine to explain and correct SQL statements 
+@bot.command(name="explain")
+async def explain_last_query(ctx: commands.Context):
+    """Displays the SQL query and details from the last analysis."""
+    context = LAST_QUERY_CONTEXT.get(ctx.channel.id)
+    if not context or not context.get("sql"):
+        await ctx.reply("No previous query execution found in this channel.")
+        return
+
+    async with ctx.typing():
+        # Prompt Gemini to explain its own SQL architecture
+        explanation_prompt = (
+            f"A user asked this NFL analytics prompt: '{context['prompt']}'\n\n"
+            f"The database executed this DuckDB SQL query:\n"
+            f"```sql\n{context['sql']}\n```\n"
+            "Provide a concise, step-by-step walkthrough of the relational logic:\n"
+            "1. Explain each CTE or table join (why those tables and columns were matched).\n"
+            "2. Explain key filters (weeks, game types, positions, play conditions).\n"
+            "3. Explain the final aggregation or calculation used to reach the answer.\n"
+            "Keep the explanation clear, technical, and formatted in Markdown bullet points."
+        )
+
+        try:
+            # Quick one-shot generation without tools
+            response = ai_client.models.generate_content(
+                model="gemini-3.5-flash-lite",
+                contents=explanation_prompt
+            )
+            step_by_step = response.text.strip()
+        except Exception as e:
+            step_by_step = f"Could not generate natural language explanation: {e}"
+
+    output = (
+        f"**Original Prompt:** `{context['prompt']}`\n\n"
+        f"**Generated SQL Query:**\n```sql\n{context['sql']}\n```\n"
+        f"**Rows Returned:** {context['row_count']}"
+        f"### Step-by Step Logic Breakdown:\n{step_by_step}"
+    )
+    if len(output) > 1950:
+        file = discord.File(io.StringIO(output), filename="query_explanation.md")
+        await ctx.reply("Query details attached:", file=file)
+    else:
+        await ctx.reply(output)
+
+
+@bot.command(name="correct")
+async def correct_last_query(ctx: commands.Context, *, user_critique: str):
+    """Extracts a permanent SQL heuristic from your feedback and persists it."""
+    context = LAST_QUERY_CONTEXT.get(ctx.channel.id)
+    if not context:
+        await ctx.reply("No previous query to correct. Ask an analytical question first!")
+        return
+
+    async with ctx.typing():
+        # Meta-prompt to distill the user's critique into a strict rule
+        meta_prompt = (
+            f"You previously generated this SQL query for the prompt: '{context['prompt']}':\n"
+            f"```sql\n{context['sql']}\n```\n"
+            f"The user provided this feedback/correction:\n"
+            f"'{user_critique}'\n\n"
+            "Extract a concise, single-sentence operational rule for future SQL generation. "
+            "Return ONLY the rule as raw text with no quotes, preamble, or markdown formatting."
+        )
+
+        response = ai_client.models.generate_content(
+            model="gemini-3.5-flash-lite",
+            contents=meta_prompt
+        )
+        new_rule = response.text.strip()
+        save_dynamic_rule(new_rule)
+
+        await ctx.reply(
+            f"✅ **Rule Learned & Saved to `dynamic_rules.json`:**\n"
+            f"> `{new_rule}`\n\n"
+            "This rule will be applied to all future queries automatically."
+        )
 
 @bot.event
 async def on_ready():

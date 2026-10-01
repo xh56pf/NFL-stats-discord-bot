@@ -1,11 +1,38 @@
 # General Notes, Thoughts, and Lessons Learned
 
+## 10/1/26
+
+Implemented !explain and !correct bot commands. !explain displays the SQL statement formed by the LLM as well as a brief, bulleted explaination into each join/filter/etc. !correct provides a method for user to offer corrections that are then saved as a system instruction/rule to the `dynamic_rules.json` file for future use. 
+
 ## 9/28/26
 
 Took the weekend off, ready to get into the dynamic heuristic engine, persistent long-term memory, and in memory visualization tools. Progress and objectives for these new features can be found at git project board page here: https://github.com/users/xh56pf/projects/1
 
+### Dynamic Heuristic Engine
 The purpose of the dynamic heuristic engine (DHE) is so the bot can learn based on conversations with user and self correct as needed based on the interaction. For example, if the bot returns a result that is completely wrong, the user can request the bot to return the SQL it generated and justify each statement. The user in theory will then be able to correct any errors in the sql statements and explain their reasoning. This reasoning will then be written into a 'dynamic_rules.json' file by the bot itself to be referenced for future queries of the same or similar nature. 
 
+Core Architecture of the Engine: 
+```text
+[ Discord User ]
+       │
+       ├─► !Hank2.0 <question>  ──► Runs DuckDB & caches {prompt, sql, row_count}
+       │
+       ├─► !explain             ──► Displays the last SQL query & logic in chat
+       │
+       └─► !correct <critique>  ──► Gemini extracts a strict operational rule
+                                           │
+                                           ▼
+                                 Appends to dynamic_rules.json
+                                           │
+                                           ▼
+                                 Injected into SYSTEM_INSTRUCTION
+```
+
+    1. Each time Hank 2.0 runs a query bot.py will save the prompt, the SQL statement generated, and the result summary in memory. 
+    2. A !explain bot command will spit out these saved elements so user can inspect all the behind the scenes stuff 
+    3. Self correct if necessary using !correct where use points out flaws, Gemini synthesises feedback into a cleaned operational rule. Rule is then written to dynamic_rules.json. For every future prompt all the saved rules are automatically read and loaded into system_instruction. 
+
+### Persistent Long-term Memory 
 Since the bot operates using stateless conversation with Gemini, token usage can grow exponentially with each query as previous conversations continue to be passed along. What could start as a 25 token prompt could result in a 1000+ token prompt as Gemini passes previous information such as the user playing in a PPR format scoring league, previously selected untradeable players on roster, favorite team, etc. For this reason, a persistent long-term memory must be implemented to hold this kind of information and will be stored in a relational database following an entry attribute value model (EAV). This is also known as an open schema similar to how NoSQL tables are formatted with key value pairs stored as dictionaries. One column will store the "note_type" and another will store the "note_value". 
 For example: 
 
