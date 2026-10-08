@@ -1,7 +1,7 @@
 # Hank2.0: Data Pipeline, Fantasy Analytics & Bot Platform 
 🏈 Football Intelligence: Autonomous NFL Analytics & Assistant
 
-An autonomous, NFL analytics engine connected directly to Discord. The system uses **Google Gemini** for reasoning and SQL synthesis, combined with an embedded **DuckDB** analytical engine for high-speed local queries on official `nflreadr` statistical data. A primary design objective of this system is to experiment with **extreme token efficiency** - minimizing prompt bloat and API overhead to operate sustainably within strict quota tiers and reduce environmental compute impact. 
+An autonomous, NFL analytics engine connected directly to Discord. The system uses **Google Gemini** for reasoning and SQL synthesis, combined with an embedded **DuckDB** analytical engine for high-speed local queries on official `nflreadr` and `sleeper-api` statistical data. A primary design objective of this system is to experiment with **extreme token efficiency** - minimizing prompt bloat and API overhead to operate sustainably within strict quota tiers and reduce environmental compute impact. 
 
 This project began as a method of compiling derived statistics such as receiver target share without manually searching and performing the calculations via Yahoo Fantasy's web interface or spinning up a Jupyter Notebook and inputting python code. 
 
