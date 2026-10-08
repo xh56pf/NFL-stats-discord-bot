@@ -39,6 +39,19 @@ The system decouples batch ingestion from user-facing query interfaces to ensure
               ▲
               │ (Scheduled Batch ETL)
        [ ingest.py ] ◀── [ nflreadpy / NFL Official Feeds ]
+              │
+              ▼
+              💾 Auto-Saves Query
+              │
+              ▼
+              [queries.json]
+              ▲
+              │ (Hot Reloads / Reads)
+              [api.py] ──► Exposes GET /api/queries/<query_name>
+              ▲
+              │
+              [Power BI / Streamlit / Frontend]
+
 ```
 
 ## Key Engineering Decisions
