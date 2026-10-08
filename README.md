@@ -1,4 +1,5 @@
-# 🏈 Football Intelligence: Autonomous NFL Analytics & Assistant
+# Hank2.0: Data Pipeline, Fantasy Analytics & Bot Platform 
+🏈 Football Intelligence: Autonomous NFL Analytics & Assistant
 
 An autonomous, NFL analytics engine connected directly to Discord. The system uses **Google Gemini** for reasoning and SQL synthesis, combined with an embedded **DuckDB** analytical engine for high-speed local queries on official `nflreadr` statistical data. A primary design objective of this system is to experiment with **extreme token efficiency** - minimizing prompt bloat and API overhead to operate sustainably within strict quota tiers and reduce environmental compute impact. 
 
@@ -8,6 +9,15 @@ Weekly NFL player performance statistics are collected from NFLReadPy and stored
 
 For an iterative breakdown of engineering hurdles, trade-offs, and design notes, see the [Devlog](docs/LEARNINGS.md).
 ---
+
+## 🚀 Key Features
+
+* **Advanced Metric Ingestion (`ingest.py`):** Fetches and normalizes NFL play-by-play, roster, and weekly usage data (targets, air yards, target shares) into a clean dimensional Star Schema.
+* **Sleeper Fantasy Integration (`sleeper_sync.py`):** Real-time synchronization with Sleeper leagues to monitor rosters, matchups, transactions, and waivers.
+* **Automated Query Persistence (`queries.json`):** Ad-hoc SQL/data queries formulated during bot interactions or generated via Gemini are automatically serialized and registered into `queries.json` without manual copy-pasting.
+* **Dynamic API Endpoints (`api.py`):** Instantly exposes all auto-saved queries from `queries.json` as reusable, parameterized HTTP/REST endpoints for external dashboards or webhooks.
+* **AI Fantasy Bot (`bot.py`):** Interactive bot leveraging Gemini to interpret natural language football queries, surface waiver insights, compare WR1 benchmarks, and write reusable queries back to the pipeline.
+* **Containerized Deployment (`docker-compose.yml`):** Multi-service orchestration enabling seamless local spins or cloud deployment.
 
 ## Architecture Overview
 
