@@ -8,8 +8,21 @@ services:
     env_file:
       - .env
     volumes:
-      # Mount current directory so nfl_stats.duckdb persists on your host
-      # and code edits to bot.py / ingest.py update immediately
       - .:/app
     environment:
       - DUCKDB_PATH=/app/nfl_stats.duckdb
+
+  bi-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.bot
+    container_name: bi-api
+    restart: unless-stopped
+    command: uvicorn api:app --host 0.0.0.0 --port 8000
+    volumes:
+      - .:/app
+    environment:
+      - DUCKDB_PATH=/app/nfl_stats.duckdb
+    ports:
+      # Expose port 8000 to the Chicago host machine
+      - "8000:8000"

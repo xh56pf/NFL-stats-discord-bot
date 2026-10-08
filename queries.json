@@ -1,0 +1,4 @@
+{
+  "target_share": "SELECT \n    player_id,\n    player_display_name AS player_name,\n    team,\n    season,\n    ROUND(AVG(target_share), 3) AS avg_target_share\nFROM weekly_stats\nWHERE position = 'WR' AND target_share IS NOT NULL AND season = 2026\nGROUP BY player_id, player_display_name, team, season\nORDER BY team, avg_target_share DESC;",
+  "carry_share": "SELECT \n    r.team,\n    r.gsis_id AS player_id,\n    r.full_name AS player_name,\n    SUM(w.carries) AS total_carries,\n    SUM(w.rushing_yards) AS total_rushing_yards,\n    SUM(w.rushing_tds) AS total_rushing_tds\nFROM weekly_stats w\nJOIN rosters r ON w.player_id = r.gsis_id\nWHERE r.position = 'RB' AND w.season = 2026\nGROUP BY r.team, r.gsis_id, r.full_name\nORDER BY r.team, total_carries DESC;"
+}

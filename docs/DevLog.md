@@ -1,5 +1,31 @@
 # General Notes, Thoughts, and Lessons Learned
 
+## 10/8/2026
+
+API endpoints up and running, able to open and import data to Power BI for visualizations. Created a sweet average target share scatter plot filtered by team but Microsoft makes sharing this knowledge with the world a huge pain. Looking into implementing Streamlit because I will not be silenced XD. 
+
+Very happy with API endpoint automation implementation, works very well and makes this entire workflow much smoother. 
+
+## 10/7/2026 
+
+After some research it looks like setting up a lightweight API is the easiest way to connect the duckdb tables to power bi. 
+
+It seems like importing the play_by_play table will inevitably become slower and slower as the season goes on due the sheer volume of data (150 plays per game, 15-16 games a week, 370 columns in the play by play table to work with etc etc). The best practice solution seems to be writing individual end points that query off the play_by_play database on the docker container first and then exporting that derived data to Power BI but it kind of defeats the purpose of having ad hoc queries with AI and a bot. Also writing and validating these API endpoints is a pain in the ass for each individual stat I want to include in the dashboard. For example, if I want to use quarterback BMI for some kind of analysis I don't want to have to go back to the api file and write an endpoint for it when using it on some one off time. 
+
+Looking into applying the same principle with the self correcting dynamic_rules.json file into writing these API calls. Going to first run the queries in the bot to make sure I get the desired result, save the validated query into a Queries.json file, then import the file into the api.py code to create these endpoints for me automatically. 
+
+## 10/6/26 
+
+Got sleeper API connected and able to ingest injury as well as trending data. Queries such as "what starting running back players are currently injured?" responding flawlessly although I wish for output to be in tables. Tested bot's ability to pick out which player will replace injured one and seems to produce viable results. Will continue testing. 
+
+Also looking at DuckDB connector for Power BI to mess around with visualizations and dashboards. 
+
+## 10/5/26
+
+This week was an absolute bloodbath for injuries in the NFL. Need to implement an injury tracker. `nflreadr` has a built in injury table to pull from but it is only updated daily at like 7 am or something, not very good for any fast breaking news. Looks like sleeper has it's own public API with trending players that will work much better for this. Going to look into implementing a sleeper.py ingest file and add players to a "injured player" table. Sleeper also has general trending alerts, like if a player starts to trend when they are expected to replace an injured player. 
+
+Best way to implement this seems to be to use Sleeper's explicit player status API which designates the player as "Questionable", "Doubtful", "Out", "IR", "PUP" or "None/Null". 
+
 ## 10/1/26
 
 Implemented !explain and !correct bot commands. !explain displays the SQL statement formed by the LLM as well as a brief, bulleted explaination into each join/filter/etc. !correct provides a method for user to offer corrections that are then saved as a system instruction/rule to the `dynamic_rules.json` file for future use. 
@@ -47,7 +73,7 @@ Purpose of this is to cut down on token utilization when processing queries. Whe
 
 One issue I am noticing with this however is how the bot chooses what information to include with the query? I get including the fact table if I am asking about which wide receiver to start, but what if I am just asking something simple like which kicker to start? Kicker scoring has nothing to do with the PPR format rules, thus it is unnecessary to include any info about PPR at all. Seems like there is a risk for something called 'context-contamination' unless some steps are implemented to mitigate. Will explore this further. 
 
-## 9/26/26
+
 
 ## 9/25/26: Added Roster and Play by Play tables    
 
