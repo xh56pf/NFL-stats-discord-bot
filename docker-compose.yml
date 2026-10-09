@@ -26,3 +26,18 @@ services:
     ports:
       # Expose port 8000 to the Chicago host machine
       - "8000:8000"
+  
+  streamlit-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.bot
+    container_name: streamlit-app
+    restart: unless-stopped
+    command: python -m streamlit run app.py --server.port 8501 --server.address 0.0.0.0
+    volumes:
+      - .:/app
+    environment:
+      - DUCKDB_PATH=/app/nfl_stats.duckdb
+    ports:
+      # Expose port 8501 to the host machine for Streamlit
+      - "8501:8501"

@@ -3,6 +3,18 @@ import duckdb
 import pandas as pd
 import altair as alt
 
+st.markdown(
+    """
+    <style>
+    section[data-testid="stSidebar"] {
+        width: 200px !important; # adjust to your desired width
+        min-width: 150px !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 st.set_page_config(
     page_title="NFL WR Target Share Analysis",
     page_icon="🏈",
@@ -76,7 +88,7 @@ if not filtered_df.empty:
 # 3. Altair Visual with Headshots
 chart = (
     alt.Chart(filtered_df)
-    .mark_image(width=48, height=48)
+    .mark_image(width=96, height=96)
     .encode(
         x=alt.X(
             "player_name:N",
@@ -102,9 +114,62 @@ chart = (
 
 st.altair_chart(chart, use_container_width=True)
 
+# Stacked horizontal bar chart for team target share breakdown
+
+bar = (
+    alt.Chart(filtered_df)
+    .mark_bar(size=40)  # Explicit bar thickness ensures it renders
+    .encode(
+        y=alt.Y("team:N", title="Team", axis=alt.Axis(labels=True)),
+        x=alt.X(
+            "avg_target_share:Q",
+            title="Total WR Target Share",
+            axis=alt.Axis(format="%"),
+            stack="zero",
+        ),
+        color=alt.Color(
+            "player_name:N",
+            title="Receiver",
+            legend=alt.Legend(orient="bottom"),
+        ),
+        order=alt.Order("avg_target_share:Q", sort="descending"),
+        tooltip=[
+            alt.Tooltip("player_name:N", title="Player"),
+            alt.Tooltip("avg_target_share:Q", title="Target Share", format=".1%"),
+        ],
+    )
+    .properties(height=100)
+)
+
+
+
+# 4. (Optional) Direct text labels inside the bar slices
+labels = (
+    alt.Chart(filtered_df)
+    .mark_text(align="center", baseline="middle", color="white", fontSize=11)
+    .encode(
+        y=alt.Y("team:N"),
+        x=alt.X("avg_target_share:Q", title="Total WR Target Share", axis=alt.Axis(format="%", offset=12, labelPadding=10, titlePadding=12), stack="zero"),
+        color=alt.Color(
+            "player_name:N",
+            title="Receiver",
+            legend=alt.Legend(orient="bottom", columns=4)
+        ),
+        text=alt.Text("avg_target_share:Q", format=".1%"),
+        order=alt.Order("avg_target_share:Q", sort="descending"),
+        detail="player_name:N",
+    )
+)
+
+team_chart = (bar + labels).properties(height=140)
+
+st.altair_chart(team_chart, use_container_width=True)
+
 # 4. Raw Data Table view
 with st.expander("View Team WR Stats Table"):
     st.dataframe(
         filtered_df[["player_name", "team", "avg_target_share"]].reset_index(drop=True),
         use_container_width=True
     )
+
+
