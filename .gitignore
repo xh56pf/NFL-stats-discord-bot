@@ -4,6 +4,7 @@
 
 # Local Databases & Ingestion Artifacts
 *.duckdb
+!nfl_stats.duckdb
 *.duckdb.wal
 *.parquet
 
