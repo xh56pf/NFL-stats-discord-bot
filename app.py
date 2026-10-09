@@ -25,7 +25,7 @@ def load_data():
             r.headshot_url
         FROM weekly_stats s
         LEFT JOIN rosters r 
-            ON s.player_id = r.player_id
+            ON s.player_id = r.gsis_id
         WHERE s.position = 'WR' 
           AND s.target_share IS NOT NULL 
           AND s.season = 2026
