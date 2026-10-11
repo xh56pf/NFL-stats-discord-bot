@@ -3,6 +3,14 @@ import duckdb
 import pandas as pd
 import altair as alt
 
+# Add custom CSS to hide the GitHub icon
+hide_github_icon = """
+#GithubIcon {
+  visibility: hidden;
+}
+"""
+st.markdown(hide_github_icon, unsafe_allow_html=True)
+
 st.markdown(
     """
     <style>
@@ -118,19 +126,26 @@ st.altair_chart(chart, use_container_width=True)
 
 bar = (
     alt.Chart(filtered_df)
-    .mark_bar(size=40)  # Explicit bar thickness ensures it renders
+    .mark_bar(size=32)  # Explicit bar thickness ensures it renders
     .encode(
         y=alt.Y("team:N", title="Team", axis=alt.Axis(labels=True)),
         x=alt.X(
             "avg_target_share:Q",
             title="Total WR Target Share",
-            axis=alt.Axis(format="%"),
+            axis=alt.Axis(format="%", offset=14, labelPadding=8, titlePadding=12),
             stack="zero",
         ),
         color=alt.Color(
             "player_name:N",
             title="Receiver",
-            legend=alt.Legend(orient="bottom"),
+            legend=alt.Legend(
+                orient="bottom", 
+                columns=3, 
+                labelLimit=0,
+                columnPadding=24,
+                rowPadding=8,
+                labelFontSize=12, 
+                symbolType="circle"),
         ),
         order=alt.Order("avg_target_share:Q", sort="descending"),
         tooltip=[
@@ -138,30 +153,41 @@ bar = (
             alt.Tooltip("avg_target_share:Q", title="Target Share", format=".1%"),
         ],
     )
-    .properties(height=100)
 )
 
 
 
-# 4. (Optional) Direct text labels inside the bar slices
+# 4. Direct text labels inside the bar slices
 labels = (
     alt.Chart(filtered_df)
-    .mark_text(align="center", baseline="middle", color="white", fontSize=11)
+    .transform_filter(alt.datum.avg_target_share > 0.08)
+    .mark_text(
+        align="center",
+        baseline="middle",
+        color="white",
+        fontSize=11,
+        fontWeight="bold",
+    )
     .encode(
         y=alt.Y("team:N"),
-        x=alt.X("avg_target_share:Q", title="Total WR Target Share", axis=alt.Axis(format="%", offset=12, labelPadding=10, titlePadding=12), stack="zero"),
-        color=alt.Color(
-            "player_name:N",
-            title="Receiver",
-            legend=alt.Legend(orient="bottom", columns=4)
-        ),
+        x=alt.X("avg_target_share:Q", stack="zero"),
         text=alt.Text("avg_target_share:Q", format=".1%"),
         order=alt.Order("avg_target_share:Q", sort="descending"),
         detail="player_name:N",
+        # Notice: NO color or legend here — avoids overriding the legend on the bar mark
     )
 )
 
-team_chart = (bar + labels).properties(height=140)
+team_chart = ( 
+    (bar + labels)
+    .properties(
+        height=180,
+        padding={"bottom":30, "left": 10}
+    )
+    .configure_view(
+        strokeOpacity=0
+    )
+)
 
 st.altair_chart(team_chart, use_container_width=True)
 
