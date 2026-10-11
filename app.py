@@ -56,6 +56,11 @@ st.markdown(
 )
 
 st.title("🏈 Team WR Target Share Distribution")
+st.markdown(
+    """
+    **Interactive Guide:** Click any player's headshot to reveal their **Targets vs. Receptions** conversion rate. 
+    """
+)
 
 @st.cache_data
 def load_data():
@@ -187,8 +192,8 @@ if selected_player:
     catches = int(player_row.get("total_receptions") or 0)
     catch_rate = (catches / targets) if targets > 0 else 0.0
 
-    st.subheader(f"{selected_player}: Targets vs. Receptions ({catch_rate:.1%} Catch Rate)")
-
+    st.subheader(f"{selected_player}: Targets vs. Receptions")
+    st.markdown(f"#### Catch Rate: {catch_rate:.1%}")
     # Reshape into tidy rows for Altair
     stats_df = pd.DataFrame([
         {"Metric": "Targets", "Count": targets},
