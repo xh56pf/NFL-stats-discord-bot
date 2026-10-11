@@ -29,6 +29,38 @@ st.set_page_config(
     layout="wide"
 )
 
+# Robust CSS to completely hide GitHub icon, Streamlit toolbar, and cloud badges
+st.markdown(
+    """
+    <style>
+    /* 1. Hide the entire top-right toolbar & header actions */
+    [data-testid="stToolbar"],
+    [data-testid="stHeader"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    /* 2. Target specific GitHub/Cloud badges and icons */
+    #GithubIcon,
+    a[href*="github.com"],
+    .viewerBadge_container__1QSob,
+    .styles_viewerBadge__1yB5_,
+    div[class*="viewerBadge"],
+    div[class*="stDeployButton"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    /* 3. Keep sidebar custom width */
+    section[data-testid="stSidebar"] {
+        width: 200px !important;
+        min-width: 150px !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 st.title("🏈 Team WR Target Share Distribution")
 
 @st.cache_data
