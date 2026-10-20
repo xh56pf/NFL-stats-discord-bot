@@ -1,0 +1,50 @@
+name: Scheduled NFL Stats Ingestion
+
+on:
+  schedule:
+    # Runs Tuesday at 10:00 AM UTC (around 5:00 AM Central / 4:00 AM Mountain)
+    # after Monday Night Football stats and rosters finalize
+    - cron: '0 10 * * 2'
+  workflow_dispatch: # Allows you to manually trigger the run anytime from the GitHub UI
+
+permissions:
+  contents: write
+
+jobs:
+  update-duckdb:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Ingest Script (nflreadpy only)
+        run: |
+          python ingest.py --skip-yahoo
+
+      - name: Commit and Push Updated DuckDB
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          # Force-add nfl_stats.duckdb even if it is listed in .gitignore
+          git add -f nfl_stats.duckdb
+
+          # Check if there are actual diffs before committing
+          if git diff --staged --quiet; then
+            echo "No database changes detected. Skipping commit."
+          else
+            git commit -m "chore(data): auto-refresh nfl_stats.duckdb tables [skip ci]"
+            git push
+          fi
