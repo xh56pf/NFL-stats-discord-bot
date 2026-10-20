@@ -1,3 +1,4 @@
+import argparse
 import os 
 import re
 import duckdb
@@ -96,131 +97,152 @@ def sync_yahoo_free_agents(con: duckdb.DuckDBPyConnection, max_players: int = 10
     except Exception as e:
         print(f"[INGEST ERROR] Failed to sync Yahoo players via API: {e}")
 
-def refresh_nfl_duckdb(season: int = 2026):
-    print(f"[INGEST] Pulling {season} weekly player stats from nflreadpy...")
-    # ---------------------------------------------------------
-    # 1. Weekly Stats (Existing offensive aggregations)
-    # ---------------------------------------------------------
-    # 1. Fetch latest data
-    df = nfl.load_player_stats([season], summary_level="week")
-    
-    # 2. Connect to DuckDB and update the table
-    con = duckdb.connect("nfl_stats.duckdb")
-    
-    # Register DataFrame as a virtual view and overwrite table atomically
-    con.register("incoming_stats", df)
-    con.execute("""
-        CREATE OR REPLACE TABLE weekly_stats AS 
-        SELECT * FROM incoming_stats;
-    """)
-    
-    row_count = con.execute("SELECT count(*) FROM weekly_stats").fetchone()[0]
-    print(f"[INGEST] Successfully refreshed weekly_stats ({row_count} rows in DuckDB).")
-    # ---------------------------------------------------------
-    # 2. Rosters (Position classifications and identifiers)
-    # ---------------------------------------------------------
-    print(f"[INGEST] Fetching rosters for {season}...")
-    roster_df = nfl.load_rosters([season])
-    con.register("incoming_rosters", roster_df)
-    con.execute("""
-        CREATE OR REPLACE TABLE rosters AS
-        SELECT 
-            season,
-            team,
-            position,
-            depth_chart_position,
-            jersey_number,
-            status,
-            full_name,
-            gsis_id,
-            headshot_url
-        FROM incoming_rosters
-        WHERE gsis_id IS NOT NULL;
-    """)
-    roster_count = con.execute("SELECT count(*) FROM rosters").fetchone()[0]
-    print(f"[INGEST] Saved rosters ({roster_count} rows).")
+# DB_PATH will use /app/nfl_stats.duckdb in Docker if set, or local nfl_stats.duckdb
+DB_PATH = os.getenv("DUCKDB_PATH", "nfl_stats.duckdb")
 
-    # ---------------------------------------------------------
-    # 3. Play-by-Play (Granular play events, down/distance & defense)
-    # ---------------------------------------------------------
-    print(f"[INGEST] Fetching play-by-play for {season}...")
-    pbp_df = nfl.load_pbp([season])
-    con.register("incoming_pbp", pbp_df)
-    con.execute("""
-        CREATE OR REPLACE TABLE play_by_play AS
-        SELECT 
-            play_id,
-            game_id,
-            season,
-            week,
-            posteam,
-            defteam,
-            yardline_100,
-            quarter_seconds_remaining,
-            qtr,
-            down,
-            ydstogo,
-            play_type,
-            yards_gained,
-            shotgun,
-            no_huddle,
-            qb_dropback,
-            pass,
-            rush,
-            pass_length,
-            pass_location,
-            air_yards,
-            yards_after_catch,
-            epa,
-            wpa,
-            passer_player_id,
-            passer_player_name,
-            receiver_player_id,
-            receiver_player_name,
-            rusher_player_id,
-            rusher_player_name,
-            qb_kneel,
-            qb_spike,
-            "desc" AS play_description
-        FROM incoming_pbp;
-    """)
-    pbp_count = con.execute("SELECT count(*) FROM play_by_play").fetchone()[0]
-    print(f"[INGEST] Saved play_by_play ({pbp_count} rows).")
+def refresh_nfl_duckdb(season: int = 2026, skip_yahoo: bool = False):
+    print(f"[INGEST] Connecting to {DB_PATH}...")
+    con = duckdb.connect(DB_PATH)
 
-    # ---------------------------------------------------------
-    # 4. Schedules (Full season schedule & remaining matchups)
-    # ---------------------------------------------------------
-    print(f"[INGEST] Fetching schedule for {season}...")
-    sched_df = nfl.load_schedules([season])
-    con.register("incoming_schedules", sched_df)
-    con.execute("""
-        CREATE OR REPLACE TABLE schedules AS
-        SELECT 
-            game_id,
-            season,
-            game_type,
-            week,
-            gameday,
-            weekday,
-            gametime,
-            away_team,
-            home_team,
-            away_score,
-            home_score,
-            result,
-            spread_line,
-            total_line
-        FROM incoming_schedules;
-    """)
-    sched_count = con.execute("SELECT count(*) FROM schedules").fetchone()[0]
-    print(f"[INGEST] Saved schedules ({sched_count} rows).")
+    try:
+        # ---------------------------------------------------------
+        # 1. Weekly Stats (Existing offensive aggregations)
+        # ---------------------------------------------------------
+        print(f"[INGEST] Pulling {season} weekly player stats from nflreadpy...")
+        df = nfl.load_player_stats([season], summary_level="week")
+        con.register("incoming_stats", df)
+        con.execute("""
+            CREATE OR REPLACE TABLE weekly_stats AS 
+            SELECT * FROM incoming_stats;
+        """)
+        row_count = con.execute("SELECT count(*) FROM weekly_stats").fetchone()[0]
+        print(f"[INGEST] Successfully refreshed weekly_stats ({row_count} rows in DuckDB).")
 
-    # 5. Yahoo Free Agents (Scraped separately)
-    sync_yahoo_free_agents(con)
+        # ---------------------------------------------------------
+        # 2. Rosters (Position classifications and identifiers)
+        # ---------------------------------------------------------
+        print(f"[INGEST] Fetching rosters for {season}...")
+        roster_df = nfl.load_rosters([season])
+        con.register("incoming_rosters", roster_df)
+        con.execute("""
+            CREATE OR REPLACE TABLE rosters AS
+            SELECT 
+                season,
+                team,
+                position,
+                depth_chart_position,
+                jersey_number,
+                status,
+                full_name,
+                gsis_id,
+                headshot_url, 
+                years_exp
+            FROM incoming_rosters
+            WHERE gsis_id IS NOT NULL;
+        """)
+        roster_count = con.execute("SELECT count(*) FROM rosters").fetchone()[0]
+        print(f"[INGEST] Saved rosters ({roster_count} rows).")
 
+        # ---------------------------------------------------------
+        # 3. Play-by-Play (Granular play events, down/distance & defense)
+        # ---------------------------------------------------------
+        print(f"[INGEST] Fetching play-by-play for {season}...")
+        pbp_df = nfl.load_pbp([season])
+        con.register("incoming_pbp", pbp_df)
+        con.execute("""
+            CREATE OR REPLACE TABLE play_by_play AS
+            SELECT 
+                play_id,
+                game_id,
+                season,
+                week,
+                posteam,
+                defteam,
+                yardline_100,
+                quarter_seconds_remaining,
+                qtr,
+                down,
+                ydstogo,
+                play_type,
+                yards_gained,
+                shotgun,
+                no_huddle,
+                qb_dropback,
+                pass,
+                rush,
+                pass_length,
+                pass_location,
+                air_yards,
+                yards_after_catch,
+                epa,
+                wpa,
+                passer_player_id,
+                passer_player_name,
+                receiver_player_id,
+                receiver_player_name,
+                rusher_player_id,
+                rusher_player_name,
+                qb_kneel,
+                qb_spike,
+                "desc" AS play_description
+            FROM incoming_pbp;
+        """)
+        pbp_count = con.execute("SELECT count(*) FROM play_by_play").fetchone()[0]
+        print(f"[INGEST] Saved play_by_play ({pbp_count} rows).")
 
-    con.close()
-    print("[INGEST] All tables successfully ingested into nfl_stats.duckdb.")
+        # ---------------------------------------------------------
+        # 4. Schedules (Full season schedule & remaining matchups)
+        # ---------------------------------------------------------
+        print(f"[INGEST] Fetching schedule for {season}...")
+        sched_df = nfl.load_schedules([season])
+        con.register("incoming_schedules", sched_df)
+        con.execute("""
+            CREATE OR REPLACE TABLE schedules AS
+            SELECT 
+                game_id,
+                season,
+                game_type,
+                week,
+                gameday,
+                weekday,
+                gametime,
+                away_team,
+                home_team,
+                away_score,
+                home_score,
+                result,
+                spread_line,
+                total_line
+            FROM incoming_schedules;
+        """)
+        sched_count = con.execute("SELECT count(*) FROM schedules").fetchone()[0]
+        print(f"[INGEST] Saved schedules ({sched_count} rows).")
+
+        # ---------------------------------------------------------
+        # 5. Yahoo Free Agents (Only run if not skipped)
+        # ---------------------------------------------------------
+        if not skip_yahoo:
+            try:
+                sync_yahoo_free_agents(con)
+            except Exception as e:
+                print(f"[INGEST WARN] Yahoo sync failed or was bypassed: {e}")
+        else:
+            print("[INGEST] Skipping Yahoo API/scrape sync (--skip-yahoo enabled).")
+
+        print("[INGEST] All requested tables successfully ingested into DuckDB.")
+
+    finally:
+        con.close()
+
 
 if __name__ == "__main__":
-    refresh_nfl_duckdb()
+    parser = argparse.ArgumentParser(description="Ingest NFL & Fantasy Data into DuckDB")
+    parser.add_argument("--season", type=int, default=2026, help="NFL season year")
+    parser.add_argument(
+        "--skip-yahoo",
+        action="store_true",
+        help="Skip Yahoo Fantasy API calls and sync nflreadpy only",
+    )
+    args = parser.parse_args()
+
+    refresh_nfl_duckdb(season=args.season, skip_yahoo=args.skip_yahoo)

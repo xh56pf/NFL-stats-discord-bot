@@ -12,6 +12,30 @@ services:
       - ./auth:/app/auth
     environment:
       - DUCKDB_PATH=/app/nfl_stats.duckdb
+    
+  jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile.bot
+    container_name: nfl-jupyter
+    restart: unless-stopped
+    command: >
+      jupyter lab
+      --ip=0.0.0.0
+      --port=8888
+      --no-browser
+      --allow-root
+      --IdentityProvider.token=''
+      --ServerApp.token=''
+      --ServerApp.password=''
+      --ServerApp.disable_check_xsrf=True
+      --ServerApp.allow_origin='*'
+    ports:
+      - "8889:8888"
+    volumes:
+      - .:/app
+    environment:
+      - DUCKDB_PATH=/app/nfl_stats.duckdb
 
   bi-api:
     build:

@@ -19,3 +19,7 @@ ENV/
 # OS Specific
 .DS_Store
 Thumbs.db
+
+# Jupyter notebooks & caches
+*.ipynb
+.ipynb_checkpoints/

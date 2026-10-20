@@ -1,5 +1,13 @@
 # General Notes, Thoughts, and Lessons Learned
 
+## 10/20/2026
+
+Looks like NFLReadPy has quite a few other tables, setup jupyter notebooks in container to do some EDA on this other data to see where I can incorporate it into the bot. Also setting up Github Actions to automatically update the duckdb file for data extracted from NflReadPy to keep data sources for current WR Streamlit and any future visualizations automatically current. Intentionally skipping yahoo updating as it is not relevant to these app pages by adding a flag. 
+
+## 10/19/2026
+
+Got some news from Yahoo regarding connecting to their Fantasy API for updating roster/team info for my demo Fantasy league. Tested the OAuth stuff but looks like I haven't been fully approved yet. Will continue to check by running ingest file to see if the Yahoo table updates. 
+
 ## 10/8/2026
 
 API endpoints up and running, able to open and import data to Power BI for visualizations. Created a sweet average target share scatter plot filtered by team but Microsoft makes sharing this knowledge with the world a huge pain. Looking into implementing Streamlit because I will not be silenced XD. 
