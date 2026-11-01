@@ -115,7 +115,7 @@ def refresh_nfl_duckdb(season: int = 2026, skip_yahoo: bool = False):
             CREATE OR REPLACE TABLE weekly_stats AS 
             SELECT * FROM incoming_stats;
         """)
-        row_count = con.execute("SELECT count(*) FROM weekly_stats").fetchone()[0]
+        row_count = con.execute("SELECT count(*) FROM weekly_stats").fetchall()[0][0]
         print(f"[INGEST] Successfully refreshed weekly_stats ({row_count} rows in DuckDB).")
 
         # ---------------------------------------------------------
