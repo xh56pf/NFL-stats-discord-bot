@@ -181,11 +181,10 @@ def run_sql_query(sql_query: str) -> list[dict]:
 
     try:
         # Open in read-only mode so concurrent bot commands do not lock the DB
-        con = duckdb.connect(DB_PATH, read_only=True)
-        cursor = con.execute(clean_query)
-        columns = [desc[0] for desc in cursor.description]
-        raw_rows = cursor.fetchall()
-        con.close()
+        with duckdb.connect(DB_PATH, read_only=True) as con:
+            cursor = con.execute(clean_query)
+            columns = [desc[0] for desc in cursor.description]
+            raw_rows = cursor.fetchall()
 
         # Map SQL NULL directly to Python None instead of pandas float NaN
         results = [dict(zip(columns, row)) for row in raw_rows]
