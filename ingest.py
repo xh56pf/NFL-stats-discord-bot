@@ -110,11 +110,7 @@ def refresh_nfl_duckdb(season: int = 2026, skip_yahoo: bool = False):
         # ---------------------------------------------------------
         print(f"[INGEST] Pulling {season} weekly player stats from nflreadpy...")
         df = nfl.load_player_stats([season], summary_level="week")
-        con.register("incoming_stats", df)
-        con.execute("""
-            CREATE OR REPLACE TABLE weekly_stats AS 
-            SELECT * FROM incoming_stats;
-        """)
+        con.execute("CREATE OR REPLACE TABLE weekly_stats AS SELECT * FROM df;")
         row_count = con.execute("SELECT count(*) FROM weekly_stats").fetchall()[0][0]
         print(f"[INGEST] Successfully refreshed weekly_stats ({row_count} rows in DuckDB).")
 
@@ -123,7 +119,6 @@ def refresh_nfl_duckdb(season: int = 2026, skip_yahoo: bool = False):
         # ---------------------------------------------------------
         print(f"[INGEST] Fetching rosters for {season}...")
         roster_df = nfl.load_rosters([season])
-        con.register("incoming_rosters", roster_df)
         con.execute("""
             CREATE OR REPLACE TABLE rosters AS
             SELECT 
@@ -137,10 +132,10 @@ def refresh_nfl_duckdb(season: int = 2026, skip_yahoo: bool = False):
                 gsis_id,
                 headshot_url, 
                 years_exp
-            FROM incoming_rosters
+            FROM roster_df
             WHERE gsis_id IS NOT NULL;
         """)
-        roster_count = con.execute("SELECT count(*) FROM rosters").fetchone()[0]
+        roster_count = con.execute("SELECT count(*) FROM rosters").fetchall()[0][0]
         print(f"[INGEST] Saved rosters ({roster_count} rows).")
 
         # ---------------------------------------------------------
@@ -148,7 +143,6 @@ def refresh_nfl_duckdb(season: int = 2026, skip_yahoo: bool = False):
         # ---------------------------------------------------------
         print(f"[INGEST] Fetching play-by-play for {season}...")
         pbp_df = nfl.load_pbp([season])
-        con.register("incoming_pbp", pbp_df)
         con.execute("""
             CREATE OR REPLACE TABLE play_by_play AS
             SELECT 
@@ -185,9 +179,9 @@ def refresh_nfl_duckdb(season: int = 2026, skip_yahoo: bool = False):
                 qb_kneel,
                 qb_spike,
                 "desc" AS play_description
-            FROM incoming_pbp;
+            FROM pbp_df;
         """)
-        pbp_count = con.execute("SELECT count(*) FROM play_by_play").fetchone()[0]
+        pbp_count = con.execute("SELECT count(*) FROM play_by_play").fetchall()[0][0]
         print(f"[INGEST] Saved play_by_play ({pbp_count} rows).")
 
         # ---------------------------------------------------------
@@ -195,7 +189,6 @@ def refresh_nfl_duckdb(season: int = 2026, skip_yahoo: bool = False):
         # ---------------------------------------------------------
         print(f"[INGEST] Fetching schedule for {season}...")
         sched_df = nfl.load_schedules([season])
-        con.register("incoming_schedules", sched_df)
         con.execute("""
             CREATE OR REPLACE TABLE schedules AS
             SELECT 
@@ -213,9 +206,9 @@ def refresh_nfl_duckdb(season: int = 2026, skip_yahoo: bool = False):
                 result,
                 spread_line,
                 total_line
-            FROM incoming_schedules;
+            FROM sched_df;
         """)
-        sched_count = con.execute("SELECT count(*) FROM schedules").fetchone()[0]
+        sched_count = con.execute("SELECT count(*) FROM schedules").fetchall()[0][0]
         print(f"[INGEST] Saved schedules ({sched_count} rows).")
 
         # ---------------------------------------------------------
